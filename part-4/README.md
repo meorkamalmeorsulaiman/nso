@@ -11,7 +11,7 @@ There are several authentication method to use for NSO to connect to the remote 
 ```bash
 sysadmin@nso01:~/nso-lab$ ncs_cli
 
-sysadmin connected from 192.168.1.15 using ssh on nso01
+sysadmin connected from 192.168.1.10 using ssh on nso01
 sysadmin@ncs> switch cli
 sysadmin@ncs#
 ```
@@ -21,53 +21,52 @@ Then configure the authentication group, we going to split the authentication fo
 ```
 sysadmin@ncs# config t
 Entering configuration mode terminal
-sysadmin@ncs(config)# devices authgroups group NSO-IOSXE 
-sysadmin@ncs(config-group-NSO-IOSXE)# default-map remote-name nso
-sysadmin@ncs(config-group-NSO-IOSXE)# default-map remote-password [USERNAME PASSWORD]
-sysadmin@ncs(config-group-NSO-IOSXE)# default-map remote-secondary-password [ENABLE PASSWORD]
-sysadmin@ncs(config-group-NSO-IOSXE)# top 
-sysadmin@ncs(config)# devices authgroups group NSO-IOSXR
-sysadmin@ncs(config-group-NSO-IOSXR)# default-map remote-name xrv
-sysadmin@ncs(config-group-NSO-IOSXR)# default-map remote-password [USERNAME PASSWORD]
+sysadmin@ncs(config)# devices authgroups group ios-xe
+sysadmin@ncs(config-group-ios-xe)# default-map remote-name nso
+sysadmin@ncs(config-group-ios-xe)# default-map remote-password [USER PASSWORD]
+sysadmin@ncs(config-group-ios-xe)# default-map remote-secondary-password [ENABLE PASSWORD]
+sysadmin@ncs(config-group-ios-xe)# top
+sysadmin@ncs(config)# devices authgroups group ios-xr
+sysadmin@ncs(config-group-ios-xr)# default-map remote-name nso
+sysadmin@ncs(config-group-ios-xr)# default-map remote-password [USER PASSWORD]
 ```
 The `remote-secondary-password` is actually the enable secret, furthermore in IOS-XR we are not enabling secret therefore there is no need to add that in the auth group. Let's proceed to add devices
 
 ```
-sysadmin@ncs(config-group-NSO-IOSXR)# top
-sysadmin@ncs(config)# devices device R9
-sysadmin@ncs(config-device-R9)# address 192.168.101.109
-sysadmin@ncs(config-device-R9)# ssh host-key-verification none 
-sysadmin@ncs(config-device-R9)# authgroup NSO-IOSXR
-sysadmin@ncs(config-device-R9)# ssh host-key-verification none 
-sysadmin@ncs(config-device-R9)# device-type cli ned-id cisco-iosxr-cli-7.55 
-sysadmin@ncs(config-device-R9)# device-type cli protocol ssh 
-sysadmin@ncs(config-device-R9)# state admin-state unlocked 
-sysadmin@ncs(config-device-R9)# top
-sysadmin@ncs(config)# devices device R7
-sysadmin@ncs(config-device-R7)# address 192.168.101.107
-sysadmin@ncs(config-device-R7)# authgroup NSO-IOSXE 
-sysadmin@ncs(config-device-R7)# device-type cli ned-id cisco-ios-cli-6.106 
-sysadmin@ncs(config-device-R7)# device-type cli protocol ssh
-sysadmin@ncs(config-device-R7)# ssh host-key-verification none 
-sysadmin@ncs(config-device-R7)# state admin-state unlocked
-sysadmin@ncs(config-device-R7)# commit
+sysadmin@ncs(config)# devices device R1
+sysadmin@ncs(config-device-R1)# address 192.168.101.101
+sysadmin@ncs(config-device-R1)# ssh host-key-verification none 
+sysadmin@ncs(config-device-R1)# authgroup ios-xe
+sysadmin@ncs(config-device-R1)# device-type cli ned-id cisco-ios-cli-6.107
+sysadmin@ncs(config-device-R1)# device-type cli protocol ssh 
+sysadmin@ncs(config-device-R1)# state admin-state unlocked 
+sysadmin@ncs(config-device-R1)# top
+sysadmin@ncs(config)# devices device R2
+sysadmin@ncs(config-device-R2)# address 192.168.101.102
+sysadmin@ncs(config-device-R2)# authgroup ios-xr
+sysadmin@ncs(config-device-R2)# device-type cli ned-id cisco-iosxr-cli-7.61
+sysadmin@ncs(config-device-R2)# device-type cli protocol ssh
+sysadmin@ncs(config-device-R2)# ssh host-key-verification none
+sysadmin@ncs(config-device-R2)# state admin-state unlocked
+sysadmin@ncs(config-device-R2)# commit
 Commit complete.
 ```
 That's all for adding the devices and now let's test the connection toward the remote devices
 
 ```
-sysadmin@ncs# devices connect 
+sysadmin@ncs# devices connect device R1
 connect-result {
-    device R7
-    result false
-    info Failed to authenticate towards device R7: SSH key exchange failed
+    device R1
+    result true
+    info (sysadmin) Connected to R1 - 192.168.101.101:22
 }
+sysadmin@ncs# devices connect device R2
 connect-result {
-    device R9
+    device R2
     result false
-    info Failed to authenticate towards device R9: SSH key exchange failed
+    info Failed to connect to device R2: connection refused: Failed to connect: NEDCOM CONNECT: Unable to reach a settlement of HostKeyAlgorithms: [ssh-ed25519, ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521, rsa-sha2-512, rsa-sha2-256] and [ssh-rsa] in new state
 }
-sysadmin@ncs#
+sysadmin@ncs# *** ALARM connection-failure: Failed to connect to device R2: connection refused: Failed to connect: NEDCOM CONNECT: Unable to reach a settlement of HostKeyAlgorithms: [ssh-ed25519, ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521, rsa-sha2-512, rsa-sha2-256] and [ssh-rsa] in new state
 ```
 
 We have problem with RSA algo, we need to configure   
@@ -77,85 +76,26 @@ sysadmin@ncs(config)# devices global-settings ssh-algorithms public-key ssh-rsa
 sysadmin@ncs(config)# commit
 Commit complete.
 sysadmin@ncs(config)# end
-sysadmin@ncs# devices connect    
+sysadmin@ncs# devices connect
 connect-result {
-    device R7
+    device R1
     result true
-    info (sysadmin) Connected to R7 - 192.168.101.107:22
+    info (sysadmin) Connected to R1 - 192.168.101.101:22
 }
 connect-result {
-    device R9
+    device R2
     result true
-    info (sysadmin) Connected to R9 - 192.168.101.109:22
+    info (sysadmin) Connected to R2 - 192.168.101.102:22
 }
 ```
 We have succesfully connected and we can add the rest of devices and look at the list as below
 
 ```
-sysadmin@ncs# devices connect
-connect-result {
-    device R10
-    result true
-    info (sysadmin) Connected to R10 - 192.168.101.110:22
-}
-connect-result {
-    device R11
-    result true
-    info (sysadmin) Connected to R11 - 192.168.101.111:22
-}
-connect-result {
-    device R12
-    result true
-    info (sysadmin) Connected to R12 - 192.168.101.112:22
-}
-connect-result {
-    device R13
-    result true
-    info (sysadmin) Connected to R13 - 192.168.101.113:22
-}
-connect-result {
-    device R14
-    result true
-    info (sysadmin) Connected to R14 - 192.168.101.114:22
-}
-connect-result {
-    device R15
-    result true
-    info (sysadmin) Connected to R15 - 192.168.101.115:22
-}
-connect-result {
-    device R16
-    result true
-    info (sysadmin) Connected to R16 - 192.168.101.116:22
-}
-connect-result {
-    device R7
-    result true
-    info (sysadmin) Connected to R7 - 192.168.101.107:22
-}
-connect-result {
-    device R8
-    result true
-    info (sysadmin) Connected to R8 - 192.168.101.108:22
-}
-connect-result {
-    device R9
-    result true
-    info (sysadmin) Connected to R9 - 192.168.101.109:22
-}
-sysadmin@ncs# show devices list 
-NAME  ADDRESS          DESCRIPTION  NED ID                ADMIN STATE  
+sysadmin@ncs# show devices list
+NAME  ADDRESS          DESCRIPTION  NED ID                ADMIN STATE
 ---------------------------------------------------------------------
-R10   192.168.101.110  -            cisco-iosxr-cli-7.55  unlocked     
-R11   192.168.101.111  -            cisco-iosxr-cli-7.55  unlocked     
-R12   192.168.101.112  -            cisco-iosxr-cli-7.55  unlocked     
-R13   192.168.101.113  -            cisco-iosxr-cli-7.55  unlocked     
-R14   192.168.101.114  -            cisco-iosxr-cli-7.55  unlocked     
-R15   192.168.101.115  -            cisco-iosxr-cli-7.55  unlocked     
-R16   192.168.101.116  -            cisco-iosxr-cli-7.55  unlocked     
-R7    192.168.101.107  -            cisco-ios-cli-6.106   unlocked     
-R8    192.168.101.108  -            cisco-ios-cli-6.106   unlocked     
-R9    192.168.101.109  -            cisco-iosxr-cli-7.55  unlocked
+R1    192.168.101.101  -            cisco-ios-cli-6.107   unlocked
+R2    192.168.101.102  -            cisco-iosxr-cli-7.61  unlocked
 ```
 Let's proceed to sync the device configuration
 
@@ -165,129 +105,85 @@ Let's proceed to sync the device configuration
 There are several ways to sync the configuration, since this is a brownfield deployment. We are going to sync from the device to NSO by first, check the sync state
 
 ```
-sysadmin@ncs# devices check-sync 
+sysadmin@ncs# devices check-sync
 sync-result {
-    device R10
+    device R1
     result unknown
 }
 sync-result {
-    device R11
-    result unknown
-}
-sync-result {
-    device R12
-    result unknown
-}
-sync-result {
-    device R13
-    result unknown
-}
-sync-result {
-    device R14
-    result unknown
-}
-sync-result {
-    device R15
-    result unknown
-}
-sync-result {
-    device R16
-    result unknown
-}
-sync-result {
-    device R7
-    result unknown
-}
-sync-result {
-    device R8
-    result unknown
-}
-sync-result {
-    device R9
+    device R2
     result unknown
 }
 ```
-NSO doesn't now what is the devices configuration, let's sync the state now
+NSO doesn't now what are the devices configuration, let's sync the state now
 
 ```
-sysadmin@ncs# devices device R10 sync-? 
+sysadmin@ncs# devices device R1 sync-?
 Possible completions:
   sync-from - Synchronize the config by pulling from the device
   sync-to   - Synchronize the config by pushing to the device
-sysadmin@ncs# devices check-sync device R10
+sysadmin@ncs# devices device R1 sync-from
+result true
+sysadmin@ncs# devices check-sync device R1
 sync-result {
-    device R10
+    device R1
     result in-sync
 }
 ```
 
-Now we can see that R10 have synced it configuration. You notice that there 2 ways to sync the configuration explained in the output above. Let's sync the device all at once
+Now we can see that R1 have synced it configuration. You notice that there 2 ways to sync the configuration explained in the output above. Let's sync the device all at once
 
 ```
-sysadmin@ncs# devices sync-from 
+sysadmin@ncs# devices sync-from
 sync-result {
-    device R10
+    device R1
     result true
 }
 sync-result {
-    device R11
-    result true
-}
-sync-result {
-    device R12
-    result true
-}
-sync-result {
-    device R13
-    result true
-}
-sync-result {
-    device R14
-    result true
-}
-sync-result {
-    device R15
-    result true
-}
-sync-result {
-    device R16
-    result true
-}
-sync-result {
-    device R7
-    result true
-}
-sync-result {
-    device R8
-    result true
-}
-sync-result {
-    device R9
+    device R2
     result true
 }
 ```
-Let's check the VRF configuration on R10
+Let's check the VRF configuration on R1 and R2
 
 ```
-sysadmin@ncs# show running-config devices device R10 config vrf 
-devices device R10
+sysadmin@ncs# show running-config devices device R1 config vrf
+devices device R1
  config
-  vrf green
-   description GREEN-SITE-1
+  vrf definition vrf-1
+   rd 1:1
+   route-target export 1:1
+   route-target import 1:1
+  !
+  vrf definition vrf-2
+   rd 1:2
+   route-target export 2:2
+   route-target import 2:2
+  !
+ !
+!
+sysadmin@ncs# show running-config devices device R2 config vrf
+devices device R2
+ config
+  vrf vrf-1
+   rd 2:1
    address-family ipv4 unicast
     import route-target
-     64500:101
+     1:1
     exit
     export route-target
-     65400:101
+     1:1
     exit
    exit
-   address-family ipv6 unicast
+  exit
+  vrf vrf-2
+   rd 2:2
+   address-family ipv4 unicast
     import route-target
-     64500:101
+     2:2
     exit
     export route-target
-     65400:101
+     2:2
     exit
    exit
   exit

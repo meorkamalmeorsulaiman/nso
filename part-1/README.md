@@ -5,28 +5,32 @@
 To deploy NSO, you will need a server or container that act as the controller. It can run on a server or as a container. In this lab, we are going to use Ubuntu as below:
 
 ```bash
-sysadmin@nso01:~$ cat /etc/os-release 
-PRETTY_NAME="Ubuntu 22.04.5 LTS"
+sysadmin@nso01:~$ cat /etc/os-release
+PRETTY_NAME="Ubuntu 24.04.2 LTS"
 NAME="Ubuntu"
-VERSION_ID="22.04"
-VERSION="22.04.5 LTS (Jammy Jellyfish)"
-VERSION_CODENAME=jammy
+VERSION_ID="24.04"
+VERSION="24.04.2 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
 ID=ubuntu
 ID_LIKE=debian
 HOME_URL="https://www.ubuntu.com/"
 SUPPORT_URL="https://help.ubuntu.com/"
 BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
 PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
-UBUNTU_CODENAME=jammy
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
 ```
 
 NSO packages also needed and evaluation version are available thru Cisco website. In this setup, we are running IOS-XE(RR) and IOS-XR(PE) several packages downloaded into the NSO VM as below:
 
 ```bash
-sysadmin@nso01:~$ ls
-ncs-6.3-cisco-ios-6.106.8-freetrial.signed.bin
-ncs-6.3-cisco-iosxr-7.55.7-freetrial.signed.bin
-nso-6.3-freetrial.linux.x86_64.signed.bin
+sysadmin@nso01:~$ ls -l nso-installer/
+total 255648
+-rw-rw-r-- 1 sysadmin sysadmin 261777981 Apr 22 13:23 nso-6.4-freetrial.linux.x86_64.signed.bin
+sysadmin@nso01:~$ ls -l ned-installer/
+total 113608
+-rw-rw-r-- 1 sysadmin sysadmin 65707583 Apr 22 13:24 ncs-6.4-cisco-ios-6.107.2-freetrial.signed.bin
+-rw-rw-r-- 1 sysadmin sysadmin 50618625 Apr 22 13:24 ncs-6.4-cisco-iosxr-7.61-freetrial.signed.bin
 ```
 More details about all these packages could be find in devnet [Installation](https://developer.cisco.com/docs/nso/guides/installation/#li.download.the.installer)
 
