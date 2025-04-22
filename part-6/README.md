@@ -1,6 +1,6 @@
-# Working with RESTCONF
+# Working with Northbound API
 
-The idea that we use python code to get the interface attributes
+The idea that we use northbound API to interact with NSO. Legacy way for northbound interfaces are cli and web interface. More details on supported APIs from DevNet [Northbound API](https://developer.cisco.com/docs/nso-guides-6.3/northbound-apis-introduction/#introduction)
 
 ## Get interface on R1 
 
