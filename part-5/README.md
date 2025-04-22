@@ -119,3 +119,168 @@ Sending 5, 100-byte ICMP Echos to 10.1.2.1, timeout is 2 seconds:
 .!!!!
 Success rate is 80 percent (4/5), round-trip min/avg/max = 1/1/1 ms
 ```
+
+## Commit
+
+There are list of commits that we can see
+
+```
+sysadmin@ncs# show configuration commit list
+2025-04-22 14:52:48
+SNo.  ID       User       Client      Time Stamp          Label       Comment
+~~~~  ~~       ~~~~       ~~~~~~      ~~~~~~~~~~          ~~~~~       ~~~~~~~
+10008 10008    sysadmin   cli         2025-04-22 14:47:19
+10007 10007    sysadmin   cli         2025-04-22 14:42:28
+10006 10006    sysadmin   cli         2025-04-22 14:29:04
+10005 10005    sysadmin   cli         2025-04-22 14:28:01
+10004 10004    sysadmin   cli         2025-04-22 14:25:48
+10003 10003    sysadmin   cli         2025-04-22 14:24:14
+10001 10001    system     system      2025-04-22 14:01:17
+```
+
+We can also see the contents
+
+```
+sysadmin@ncs# show configuration commit changes 10008
+!
+! Created by: sysadmin
+! Date: 2025-04-22 14:47:19
+! Client: cli
+!
+devices device R1
+ config
+  interface GigabitEthernet2
+   no shutdown
+  exit
+ !
+!
+```
+
+We can see the different too with the latest or current configuration. Where below the interface has been turn on
+
+```
+sysadmin@ncs# show configuration commit changes diff 10008
+!
+! Created by: sysadmin
+! Date: 2025-04-22 14:47:19
+! Client: cli
+!
+ devices device R1
+  config
+   interface GigabitEthernet2
+-   shutdown
++   no shutdown
+   exit
+  !
+ !
+```
+
+## Rollback
+
+We can rollback the configuration to specific commit, now we can check the rollback configuration before we proceed
+
+```
+sysadmin@ncs# show configuration commit list
+2025-04-22 14:57:50
+SNo.  ID       User       Client      Time Stamp          Label       Comment
+~~~~  ~~       ~~~~       ~~~~~~      ~~~~~~~~~~          ~~~~~       ~~~~~~~
+10008 10008    sysadmin   cli         2025-04-22 14:47:19
+10007 10007    sysadmin   cli         2025-04-22 14:42:28
+10006 10006    sysadmin   cli         2025-04-22 14:29:04
+10005 10005    sysadmin   cli         2025-04-22 14:28:01
+10004 10004    sysadmin   cli         2025-04-22 14:25:48
+10003 10003    sysadmin   cli         2025-04-22 14:24:14
+10001 10001    system     system      2025-04-22 14:01:17
+sysadmin@ncs# file show logs/rollback10008
+# Created by: sysadmin
+# Date: 2025-04-22 14:47:19
+# Via: cli
+# Type: delta
+# Label:
+# Comment:
+# No: 10008
+# TransactionId: 504
+# Hostname: nso01
+
+ncs:devices {
+    ncs:device R1 {
+        ncs:config {
+            ios:interface {
+                ios:GigabitEthernet 2 {
+                    ios:shutdown;
+                }
+             }
+         }
+     }
+ }
+```
+
+Above, tells us that the interface will be shutdown once we proceed to rollback. Lets proceed
+
+```
+sysadmin@ncs# rollback-files apply-rollback-file fixed-number 10008 | details
+running action /rollback-files/apply-rollback-file usid=59 tid=482 trace-id=0f50b5b6e748a40d22eb6b7c1fb029d0
+applying transaction for running datastore usid=59 tid=586 trace-id=0f50b5b6e748a40d22eb6b7c1fb029d0
+ 2025-04-22T14:59:08.589 waiting to apply... ok (0.000 s)
+entering validate phase
+ 2025-04-22T14:59:08.589 creating rollback checkpoint... ok (0.000 s)
+ 2025-04-22T14:59:08.589 creating rollback file... ok (0.000 s)
+ 2025-04-22T14:59:08.591 creating pre-transform checkpoint... ok (0.000 s)
+ 2025-04-22T14:59:08.591 creating transform checkpoint... ok (0.000 s)
+ 2025-04-22T14:59:08.591 run transforms and transaction hooks... ok (0.000 s)
+ 2025-04-22T14:59:08.591 creating validation checkpoint... ok (0.000 s)
+ 2025-04-22T14:59:08.592 mark inactive... ok (0.000 s)
+ 2025-04-22T14:59:08.592 pre validate... ok (0.000 s)
+ 2025-04-22T14:59:08.592 run validation over the changeset... ok (0.000 s)
+ 2025-04-22T14:59:08.592 run dependency-triggered validation... ok (0.000 s)
+ 2025-04-22T14:59:08.593 check configuration policies... ok (0.000 s)
+ 2025-04-22T14:59:08.593 check for read-write conflicts... ok (0.000 s)
+ 2025-04-22T14:59:08.593 taking transaction lock... ok (0.000 s)
+ 2025-04-22T14:59:08.593 holding transaction lock...
+ 2025-04-22T14:59:08.593 check for read-write conflicts... ok (0.000 s)
+leaving validate phase (0.004 s)
+entering write-start phase
+ 2025-04-22T14:59:08.593 cdb: write-start
+ 2025-04-22T14:59:08.593 service-manager: write-start
+ 2025-04-22T14:59:08.593 device-manager: write-start
+ 2025-04-22T14:59:08.594 cdb: match subscribers... ok (0.000 s)
+ 2025-04-22T14:59:08.594 cdb: create pre commit running... ok (0.000 s)
+ 2025-04-22T14:59:08.594 cdb: write changeset... ok (0.000 s)
+ 2025-04-22T14:59:08.594 check data kickers... ok (0.000 s)
+leaving write-start phase (0.001 s)
+entering prepare phase
+ 2025-04-22T14:59:08.594 cdb: prepare
+ 2025-04-22T14:59:08.596 device-manager: prepare
+ 2025-04-22T14:59:09.088 device R1: push configuration...
+leaving prepare phase (1.791 s)
+entering commit phase
+ 2025-04-22T14:59:10.385 cdb: commit
+ 2025-04-22T14:59:10.385 cdb: switch to new running... ok (0.002 s)
+ 2025-04-22T14:59:10.389 device-manager: commit
+ 2025-04-22T14:59:10.389 device R1: push configuration: ok (1.300 s)
+ 2025-04-22T14:59:10.610 holding transaction lock: ok (2.016 s)
+leaving commit phase (0.224 s)
+applying transaction for running datastore usid=59 tid=586 trace-id=0f50b5b6e748a40d22eb6b7c1fb029d0 (2.020 s)
+running action /rollback-files/apply-rollback-file usid=59 tid=482 trace-id=0f50b5b6e748a40d22eb6b7c1fb029d0 (2.025 s)
+```
+
+Now the rollback has been applied, let's check
+
+```
+sysadmin@ncs# show running-config devices device R1 config interface GigabitEthernet 2
+devices device R1
+ config
+  interface GigabitEthernet2
+   description R2
+   no switchport
+   negotiation auto
+   ip address 10.1.2.1 255.255.255.0
+   ip ospf 100 area 0
+   ip ospf network point-to-point
+   shutdown
+  exit
+ !
+!
+```
+The interface has been shutdown
+
