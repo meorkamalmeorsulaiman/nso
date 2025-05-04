@@ -1,23 +1,27 @@
 # Service Template
 
-## Initialize Directory
+All variable supply thru python, normal template require input variables by administrator. On the other hand, service template us variable supplied from python code. This help work repetitive work, for example creating VLANs across multiple switches or VRF on multiple PE.
+
+## Creating Service Package
+
+This will create package codes and service name as below:
 
 ```
-sysadmin@nso01:~/nso-lab/packages$ ncs-make-package --service-skeleton python dns-config-xe
+sysadmin@nso01:~/nso-lab/packages$ ncs-make-package --service-skeleton python vrf-config-xe
 sysadmin@nso01:~/nso-lab/packages$ ls
-cisco-ios-cli-6.107  cisco-iosxr-cli-7.61  dns-config-xe  vpn-service-xe  vpn-service-xr
-sysadmin@nso01:~/nso-lab/packages$ tree dns-config-xe/
-dns-config-xe/
+cisco-ios-cli-6.107  cisco-iosxr-cli-7.61  vpn-service-xe  vpn-service-xr  vrf-config-xe
+sysadmin@nso01:~/nso-lab/packages$ tree vrf-config-xe/
+vrf-config-xe/
 ├── README
 ├── package-meta-data.xml
 ├── python
-│   └── dns_config_xe
+│   └── vrf_config_xe
 │       ├── __init__.py
 │       └── main.py
 ├── src
 │   ├── Makefile
 │   └── yang
-│       └── dns-config-xe.yang
+│       └── vrf-config-xe.yang
 ├── templates
 └── test
     ├── Makefile
@@ -34,32 +38,15 @@ dns-config-xe/
 
 10 directories, 14 files
 ```
-Generate files
+
+Now, we have the package files and let's create the YANG variables
 
 ```
-sysadmin@nso01:~/nso-lab/packages/dns-config-xe$ vim python/dns_config_xe/main.py
-#Codes Snipped
-class ServiceCallbacks(Service):
+sysadmin@nso01:~/nso-lab/packages/vrf-config-xe$ cat src/yang/vrf-config-xe.yang
+module vrf-config-xe {
 
-    # The create() callback is invoked inside NCS FASTMAP and
-    # must always exist.
-    @Service.create
-    def cb_create(self, tctx, root, service, proplist):
-        self.log.info('Service create(service=', service._path, ')')
-        template_vars = ncs.template.Variables()
-        template_vars.add('dns-ip', '192.0.2.1')
-        template = ncs.template.Template(service)
-        template.apply('dns-config-xe', template_vars)
-```
-
-Update yang variable
-
-```
-sysadmin@nso01:~/nso-lab/packages/dns-config-xe$ cat src/yang/dns-config-xe.yang
-module dns-config-xe {
-
-  namespace "http://example.com/dns-config-xe";
-  prefix dns-config-xe;
+  namespace "http://example.com/vrf-config-xe";
+  prefix vrf-config-xe;
 
   import ietf-inet-types {
     prefix inet;
@@ -79,7 +66,7 @@ module dns-config-xe {
       "Initial revision.";
   }
 
-  list dns-config-xe {
+  list vrf-config-xe {
     description "This is an RFS skeleton service";
 
     key name;
@@ -90,7 +77,7 @@ module dns-config-xe {
     }
 
     uses ncs:service-data;
-    ncs:servicepoint dns-config-xe-servicepoint;
+    ncs:servicepoint vrf-config-xe-servicepoint;
 
     // may replace this with other ways of refering to the devices.
     leaf-list device {
@@ -100,34 +87,100 @@ module dns-config-xe {
     }
 
     // replace with your own stuff here
-    leaf dns-ip {
-      type inet:ipv4-address;
+    leaf vrf-name {
+      type string;
     }
+
+    leaf rd {
+      type string;
+    }
+
+    leaf import-rt {
+      type string;
+    }
+
+    leaf export-rt {
+      type string;
+    }
+
   }
 }
 ```
 
-Create templates
+We also need the VRF configuration template we can copy from NSO to the directory 
 ```
+sysadmin@ncs# show running-config devices device R1 config vrf definition vrf-2 | display xml | save packages/vrf-config-xe/templates/vrf-config-xe.yml
+```
+
+Then we edit to match the variable
+
+```
+sysadmin@nso01:~/nso-lab/packages/vrf-config-xe$ cat templates/vrf-config-xe-template.yml
 <config xmlns="http://tail-f.com/ns/config/1.0">
   <devices xmlns="http://tail-f.com/ns/ncs">
     <device>
       <name>{/device}</name>
       <config>
-        <sys xmlns="http://example.com/router">
-          <dns>
-            <server>
-              <address>{$dns-ip}</address>
-            </server>
-          </dns>
-        </sys>
+        <vrf xmlns="urn:ios">
+          <definition>
+            <name>{$vrf-name}</name>
+            <rd>{$rd}</rd>
+            <route-target>
+              <export>
+                <asn-ip>{$export-rt}</asn-ip>
+              </export>
+              <import>
+                <asn-ip>{$import-rt}</asn-ip>
+              </import>
+            </route-target>
+          </definition>
+        </vrf>
       </config>
     </device>
   </devices>
 </config>
 ```
 
-Reload packages
+At this point we have completed the necessary files for service.  Now we can proceed to compile the updated YANG
+
+```
+sysadmin@nso01:~/nso-lab/packages/vrf-config-xe/src$ make
+mkdir -p ../load-dir
+/home/sysadmin/nso-6.4/bin/ncsc  `ls vrf-config-xe-ann.yang  > /dev/null 2>&1 && echo "-a vrf-config-xe-ann.yang"` \
+        --fail-on-warnings \
+         \
+        -c -o ../load-dir/vrf-config-xe.fxs yang/vrf-config-xe.yang
+```
+
+## Template Codes
+
+Template variable can get it's input from different source. For service template we can using programming language. Add below section under `cb_create` function
+
+```
+sysadmin@nso01:~/nso-lab/packages/dns-config-xe$ vim python/dns_config_xe/main.py
+#Codes Snipped
+class ServiceCallbacks(Service):
+
+    # The create() callback is invoked inside NCS FASTMAP and
+    # must always exist.
+    @Service.create
+    def cb_create(self, tctx, root, service, proplist):
+        self.log.info('Service create(service=', service._path, ')')
+        template_vars = ncs.template.Variables()
+        template_vars.add('vrf-name', 'vrf-4')
+        template_vars.add('rd', '1:4')
+        template_vars.add('export-rt', '1:4')
+        template_vars.add('import-rt', '1:4')
+        template = ncs.template.Template(service)
+        template.apply('vrf-config-xe', template_vars)
+#Code Snipped
+```
+Above, we can invoke multiple `.add()` function to apply multiple variable as we define in YANG template.
+
+## Load Package and Apply Service Template
+
+Reload package to load the service template
+
 ```
 sysadmin@ncs# packages reload
 
@@ -144,10 +197,6 @@ reload-result {
     result true
 }
 reload-result {
-    package dns-config-xe
-    result true
-}
-reload-result {
     package vpn-service-xe
     result true
 }
@@ -155,43 +204,19 @@ reload-result {
     package vpn-service-xr
     result true
 }
+reload-result {
+    package vrf-config-xe
+    result true
+}
 sysadmin@ncs#
-System message at 2025-04-29 13:55:24...
-    Subsystem stopped: ncs-dp-2-cisco-ios-cli-6.107:IOSDp
+System message at 2025-05-04 03:52:59...
+    Subsystem stopped: ncs-dp-1-cisco-ios-cli-6.107:IOSDp
 sysadmin@ncs#
-System message at 2025-04-29 13:55:24...
-    Subsystem started: ncs-dp-3-cisco-ios-cli-6.107:IOSDp
+System message at 2025-05-04 03:52:59...
+    Subsystem started: ncs-dp-2-cisco-ios-cli-6.107:IOSDp
 ```
 
-Parse template to file
-
-```
-sysadmin@ncs# show running-config devices device R1 config ip name-server | display xml | save nso-lab/packages/dns-config-xe/templates/dns-config-x
-```
-
-Edit template
-
-```
-sysadmin@nso01:~/nso-lab/packages/dns-config-xe/templates$ cat dns-config-xe.xml
-<config xmlns="http://tail-f.com/ns/config/1.0">
-  <devices xmlns="http://tail-f.com/ns/ncs">
-    <device>
-      <name>{/device}</name>
-      <config>
-        <ip xmlns="urn:ios">
-          <name-server>
-            <name-server-list>
-               <address>{$dns-ip}</address>
-            </name-server-list>
-          </name-server>
-        </ip>
-      </config>
-    </device>
-  </devices>
-</config>
-```
-
-Reload packages and reapply config
+Now, the package has been loaded. Let's proceed to apply the service template on the router.
 
 ```
 sysadmin@ncs(config-dns-config-xe-dns-r1)# commit dry-run
